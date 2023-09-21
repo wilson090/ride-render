@@ -1,56 +1,39 @@
 import Container from '../components/container'
-import MoreStories from '../components/more-stories'
-import HeroPost from '../components/hero-post'
 import Intro from '../components/intro'
 import Layout from '../components/layout'
-import { getAllPosts } from '../lib/api'
+import MapComponent from '../components/map'
 import Head from 'next/head'
-import { CMS_NAME } from '../lib/constants'
-import Post from '../interfaces/post'
 
-type Props = {
-  allPosts: Post[]
-}
+require('dotenv').config();
 
-export default function Index({ allPosts }: Props) {
-  const heroPost = allPosts[0]
-  const morePosts = allPosts.slice(1)
+
+const mapboxApiKey = process.env.MAPBOX_API_KEY || '';
+
+export default function Index() {
+
   return (
     <>
       <Layout>
         <Head>
-          <title>{`Next.js Blog Example with ${CMS_NAME}`}</title>
+          <title>{`RideRender`}</title>
         </Head>
         <Container>
           <Intro />
-          {heroPost && (
-            <HeroPost
-              title={heroPost.title}
-              coverImage={heroPost.coverImage}
-              date={heroPost.date}
-              author={heroPost.author}
-              slug={heroPost.slug}
-              excerpt={heroPost.excerpt}
-            />
-          )}
-          {morePosts.length > 0 && <MoreStories posts={morePosts} />}
+          <div className="container mx-auto">
+          <div className="w-full flex h-[calc(3/4*100vh)]">
+            <MapComponent mapboxApiKey={mapboxApiKey} />
+          </div>
+        </div>
         </Container>
+        
+        <div className="pb-14 sm:pb-16 lg:pb-18"></div>
       </Layout>
     </>
   )
 }
 
 export const getStaticProps = async () => {
-  const allPosts = getAllPosts([
-    'title',
-    'date',
-    'slug',
-    'author',
-    'coverImage',
-    'excerpt',
-  ])
-
   return {
-    props: { allPosts },
+    props: {  },
   }
 }
