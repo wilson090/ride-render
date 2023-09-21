@@ -1,4 +1,5 @@
 const webpack = require('webpack');
+const path = require('path');
 
 module.exports = {
   webpack: (config) => {
@@ -8,6 +9,17 @@ module.exports = {
         'process.env.MAPBOX_API_KEY': JSON.stringify(process.env.MAPBOX_API_KEY),
       })
     );
+    // Add a rule to handle .geojson files
+    config.module.rules.push({
+      test: /\.geojson$/,
+      include: path.resolve(__dirname, './public/example_ride/ride.geojson'),
+      use: [
+        {
+          loader: 'raw-loader',
+        },
+      ],
+    });
+
     return config;
   },
 };

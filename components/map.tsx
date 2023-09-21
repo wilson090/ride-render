@@ -1,11 +1,15 @@
 import React, { useEffect } from 'react';
 import mapboxgl from 'mapbox-gl'; // Import Map type as well
+import rideData from '../public/example_ride/ride.geojson';
 
+interface MapComponentProps {
+  mapboxApiKey: string;
+}
 
-const MapComponent: React.FC<{ mapboxApiKey: string }> = ({ mapboxApiKey }) => {
+const MapComponent: React.FC<MapComponentProps> = ({ mapboxApiKey}) => {
     useEffect(() => {
     mapboxgl.accessToken = mapboxApiKey;
-    console.log(mapboxApiKey)
+    const geojsonData = JSON.parse(rideData);
 
     const map = new mapboxgl.Map({
       container: 'map',
@@ -24,40 +28,10 @@ const MapComponent: React.FC<{ mapboxApiKey: string }> = ({ mapboxApiKey }) => {
     // overlay.appendChild(stats);
     // map.getContainer().appendChild(overlay);
 
-
     map.on('load', () => {
       map.addSource('route', {
         type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-                [-122.483696, 37.833818],
-                [-122.483482, 37.833174],
-                [-122.483396, 37.8327],
-                [-122.483568, 37.832056],
-                [-122.48404, 37.831141],
-                [-122.48404, 37.830497],
-                [-122.483482, 37.82992],
-                [-122.483568, 37.829548],
-                [-122.48507, 37.829446],
-                [-122.4861, 37.828802],
-                [-122.486958, 37.82931],
-                [-122.487001, 37.830802],
-                [-122.487516, 37.831683],
-                [-122.488031, 37.832158],
-                [-122.488889, 37.832971],
-                [-122.489876, 37.832632],
-                [-122.490434, 37.832937],
-                [-122.49125, 37.832429],
-                [-122.491636, 37.832564],
-                [-122.492237, 37.833378],
-                [-122.493782, 37.833683]
-            ],
-          },
-        },
+        data: geojsonData,
       });
 
       map.addLayer({
@@ -73,19 +47,45 @@ const MapComponent: React.FC<{ mapboxApiKey: string }> = ({ mapboxApiKey }) => {
           'line-width': 8,
         },
       });
+      
+      // Wait for the "route" layer to load
+      map.on('data', (e) => {
+        if (e.sourceId === 'route' && e.isSourceLoaded) {
+          // Get the features from the "route" layer
+        const features = map.querySourceFeatures('route');
 
-      map.boxZoom.disable();
-      map.scrollZoom.disable();
-      map.dragPan.disable();
-      map.dragRotate.disable();
-      map.keyboard.disable();
-      map.doubleClickZoom.disable();
-      map.touchZoomRotate.disable();
+        if (features.length > 0) {
+          // Initialize bounds with the coordinates of the first feature
+          const bounds = new mapboxgl.LngLatBounds();
+
+          // Extend the bounds to include all coordinates from all features
+          features.forEach((feature) => {
+            feature.geometry.coordinates.forEach((coord) => {
+              bounds.extend(coord);
+            });
+          });
+
+          // Fit the map to the calculated bounds
+          map.fitBounds(bounds, {
+            padding: 75, // You can adjust the padding as needed
+          });
+        }
+  
+          // Disable map interactions if needed
+          map.boxZoom.disable();
+          map.scrollZoom.disable();
+          map.dragPan.disable();
+          map.dragRotate.disable();
+          map.keyboard.disable();
+          map.doubleClickZoom.disable();
+          map.touchZoomRotate.disable();
+        }
+      });
       
     });
-  }, ); // Include mapboxApiKey as a dependency in the useEffect
+  }, [mapboxApiKey]);
 
-  return     <div id="map" className="w-full h-full"></div>  ;
+  return <div id="map" className="w-full h-full"></div>  ;
 };
 
 export default MapComponent;
