@@ -1,91 +1,101 @@
-import React, { useEffect } from 'react';
-import mapboxgl from 'mapbox-gl'; // Import Map type as well
-import rideData from '../public/example_ride/ride.geojson';
+import React, { useEffect, useRef } from 'react';
+import mapboxgl, { LngLatBounds } from 'mapbox-gl';
 
 interface MapComponentProps {
   mapboxApiKey: string;
+  mapStyleUrl: string;
+  geoJsonData: any;
 }
 
-const MapComponent: React.FC<MapComponentProps> = ({ mapboxApiKey}) => {
-    useEffect(() => {
+const MapComponent: React.FC<MapComponentProps> = ({ mapboxApiKey, mapStyleUrl, geoJsonData }) => {
+  const mapContainerRef = useRef(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const routeSource = useRef<string | null>('route');
+  const prevStyle = useRef(mapStyleUrl);
+
+  useEffect(() => {
     mapboxgl.accessToken = mapboxApiKey;
-    const geojsonData = JSON.parse(rideData);
 
-    const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/wspearman/clmsnvedp01zo01rc6b84bz6y',
-      center: [-122.486052, 37.830348],
-      zoom: 14,
-    });
-
-    // Create an overlay element
-    // const overlay = document.createElement('div');
-    // overlay.className = 'h-full flex justify-center items-center'
-
-    // const stats = document.createElement('div');
-    // stats.className = 'text-md text-white font-bold absolute bottom-1/4 right-1/4';
-    // stats.innerHTML = '20mi 13.2mph';
-    // overlay.appendChild(stats);
-    // map.getContainer().appendChild(overlay);
-
-    map.on('load', () => {
-      map.addSource('route', {
-        type: 'geojson',
-        data: geojsonData,
+    if (!map.current) {
+      // Initialize the map when it's not already initialized
+      map.current = new mapboxgl.Map({
+        container: mapContainerRef.current!,
+        style: mapStyleUrl, // Set the initial map style
+        center: [-122.486052, 37.830348],
+        zoom: 12,
       });
+      prevStyle.current = mapStyleUrl
 
-      map.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round',
-        },
-        paint: {
-          'line-color': '#FC4C02',
-          'line-width': 8,
-        },
+      // Wait for the new style to load
+      map.current.on('style.load', () => {
+        // Add the route source after the style has loaded
+        map.current!.addSource(routeSource.current!, {
+          type: 'geojson',
+          data: geoJsonData,
+        });
+
+        // Add the route layer
+        map.current!.addLayer({
+          id: 'route',
+          type: 'line',
+          source: routeSource.current!,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#FC4C02',
+            'line-width': 8,
+          },
+        });
+
+        // Wait for the "route" layer to load
+        map.current!.on('data', (e) => {
+          if (e.sourceId === routeSource.current! && e.isSourceLoaded) {
+            // Get the features from the "route" layer
+            const features = map.current!.querySourceFeatures(routeSource.current!);
+
+            if (features.length > 0) {
+              // Initialize bounds with the coordinates of the first feature
+              const bounds = new LngLatBounds();
+
+              // Extend the bounds to include all coordinates from all features
+              features.forEach((feature) => {
+                feature.geometry.coordinates.forEach((coord) => {
+                  bounds.extend(coord);
+                });
+              });
+
+              // Fit the map to the calculated bounds
+              map.current!.fitBounds(bounds, {
+                padding: 75,
+              });
+            }
+
+            // Disable map interactions if needed
+            map.current!.boxZoom.disable();
+            map.current!.scrollZoom.disable();
+            map.current!.dragPan.disable();
+            map.current!.dragRotate.disable();
+            map.current!.keyboard.disable();
+            map.current!.doubleClickZoom.disable();
+            map.current!.touchZoomRotate.disable();
+          }
+        });
       });
-      
-      // Wait for the "route" layer to load
-      map.on('data', (e) => {
-        if (e.sourceId === 'route' && e.isSourceLoaded) {
-          // Get the features from the "route" layer
-        const features = map.querySourceFeatures('route');
+    } else {
+      // Update the data of the "route" source when geoJsonData changes
+      if (mapStyleUrl !== prevStyle.current) {
+        map.current.setStyle(mapStyleUrl);
+        prevStyle.current = mapStyleUrl
 
-        if (features.length > 0) {
-          // Initialize bounds with the coordinates of the first feature
-          const bounds = new mapboxgl.LngLatBounds();
+      } else {
+        map.current.getSource(routeSource.current!)!.setData(geoJsonData);
+      }
+    }
+  }, [mapboxApiKey, mapStyleUrl, geoJsonData]);
 
-          // Extend the bounds to include all coordinates from all features
-          features.forEach((feature) => {
-            feature.geometry.coordinates.forEach((coord) => {
-              bounds.extend(coord);
-            });
-          });
-
-          // Fit the map to the calculated bounds
-          map.fitBounds(bounds, {
-            padding: 75, // You can adjust the padding as needed
-          });
-        }
-  
-          // Disable map interactions if needed
-          map.boxZoom.disable();
-          map.scrollZoom.disable();
-          map.dragPan.disable();
-          map.dragRotate.disable();
-          map.keyboard.disable();
-          map.doubleClickZoom.disable();
-          map.touchZoomRotate.disable();
-        }
-      });
-      
-    });
-  }, [mapboxApiKey]);
-
-  return <div id="map" className="w-full h-full"></div>  ;
+  return <div id="map" className="w-full h-full" ref={mapContainerRef}></div>;
 };
 
 export default MapComponent;
