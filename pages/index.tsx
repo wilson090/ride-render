@@ -7,7 +7,7 @@ import StyleGallery from '../components/styleGallery'
 import SaveInstructions from '../components/saveInstructions'
 import UploadButton from '../components/uploadButton'
 import Head from 'next/head'
-import rideData from '../public/example_ride/ride.geojson';
+import rideData from '/public/example_ride/ride.geojson';
 
 require('dotenv').config();
 

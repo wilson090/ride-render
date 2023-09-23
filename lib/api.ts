@@ -1,4 +1,3 @@
-import fs from 'fs'
 import togeojson from '@mapbox/togeojson';
 const DOMParser = require('xmldom').DOMParser;
 
