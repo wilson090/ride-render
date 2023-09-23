@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl, { LngLatBounds } from 'mapbox-gl';
 
 interface MapComponentProps {
@@ -7,95 +7,150 @@ interface MapComponentProps {
   geoJsonData: any;
 }
 
+function getMidpoint(coord1, coord2): [number, number] {
+  return [
+    (coord1[0] + coord2[0]) / 2, // Midpoint longitude
+    (coord1[1] + coord2[1]) / 2  // Midpoint latitude
+  ];
+}
+
 const MapComponent: React.FC<MapComponentProps> = ({ mapboxApiKey, mapStyleUrl, geoJsonData }) => {
-  const mapContainerRef = useRef(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const routeSource = useRef<string | null>('route');
-  const prevStyle = useRef(mapStyleUrl);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const [styleLoaded, setStyleLoaded] = useState(false);
+
+  const styleUrlToColorMap = {
+    'mapbox://styles/wspearman/clmsnvedp01zo01rc6b84bz6y': 
+      {color: '#FC4C02',
+       width: 8,
+       lineDasharray: [1,0] },
+    'mapbox://styles/mapbox/light-v10':
+      {color: '#FC4C02',
+       width: 8,
+       lineDasharray: [1,0] },
+    'mapbox://styles/mapbox/streets-v12':
+      {color: '#FC4C02',
+       width: 8,
+       lineDasharray: [1,0] },
+    'mapbox://styles/wspearman/clmv38qdg020v01r82fnr56jw':
+      {color: '#fff700',
+       width: 2,
+       lineDasharray: [2,2] },
+    'mapbox://styles/wspearman/clmvad3cl006f01py0bcl73yz':
+      {color: '#FFFFFF',
+       width: 8,
+       lineDasharray: [1,0] },
+  };
+
+  const centerMap = (geojson) => {
+    console.log("center")
+    // Create a 'LngLatBounds' with both corners at the first coordinate.
+    const bounds = new LngLatBounds();
+    
+    // Extend the 'LngLatBounds' to include every coordinate in the bounds result.
+    geojson.features.forEach((feature) => {
+      const geometry = feature.geometry;
+      if (geometry.type === 'MultiLineString') {
+        geometry.coordinates.forEach((coordinates) => {
+          coordinates.forEach((coordinate) => {
+            bounds.extend(coordinate);
+          });
+        });
+      } else if (geometry.type === 'LineString') {
+        geometry.coordinates.forEach((coordinate) => {
+          bounds.extend(coordinate);
+        });
+      }
+    });
+
+    mapInstanceRef.current.fitBounds(bounds, {
+      padding: 75
+    });
+};
+
+  const disableUserMovement = () => {
+    // Disable map interactions if needed
+    mapInstanceRef.current!.boxZoom.disable();
+    mapInstanceRef.current!.scrollZoom.disable();
+    mapInstanceRef.current!.dragPan.disable();
+    mapInstanceRef.current!.dragRotate.disable();
+    mapInstanceRef.current!.keyboard.disable();
+    mapInstanceRef.current!.doubleClickZoom.disable();
+    mapInstanceRef.current!.touchZoomRotate.disable();
+    
+  }
 
   useEffect(() => {
+    // Initialize Mapbox GL map when the component mounts
     mapboxgl.accessToken = mapboxApiKey;
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current!,
+      style: 'mapbox://styles/mapbox/light-v10', // Use a default style while the provided style loads
+      center: [-122.486052, 37.830348],
+      zoom: 12,
+  });
 
-    if (!map.current) {
-      // Initialize the map when it's not already initialized
-      map.current = new mapboxgl.Map({
-        container: mapContainerRef.current!,
-        style: mapStyleUrl, // Set the initial map style
-        center: [-122.486052, 37.830348],
-        zoom: 12,
-      });
-      prevStyle.current = mapStyleUrl
+    mapInstanceRef.current = map;
 
-      // Wait for the new style to load
-      map.current.on('style.load', () => {
-        // Add the route source after the style has loaded
-        map.current!.addSource(routeSource.current!, {
+    // Listen for the "style.load" event to ensure the style is loaded
+    map.on('style.load', () => {
+      setStyleLoaded(true); // Mark the style as loaded
+
+      // Create the initial source with geoJsonData
+      if (geoJsonData) {
+        map.addSource('route', {
           type: 'geojson',
           data: geoJsonData,
         });
 
-        // Add the route layer
-        map.current!.addLayer({
+        // Create a layer using the initial source
+        map.addLayer({
           id: 'route',
           type: 'line',
-          source: routeSource.current!,
+          source: 'route',
           layout: {
             'line-join': 'round',
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#FC4C02',
-            'line-width': 8,
+            'line-color': styleUrlToColorMap[mapStyleUrl].color,
+            'line-width':  styleUrlToColorMap[mapStyleUrl].width,
+            'line-dasharray':  styleUrlToColorMap[mapStyleUrl].lineDasharray,
           },
         });
-
-        // Wait for the "route" layer to load
-        map.current!.on('data', (e) => {
-          if (e.sourceId === routeSource.current! && e.isSourceLoaded) {
-            // Get the features from the "route" layer
-            const features = map.current!.querySourceFeatures(routeSource.current!);
-
-            if (features.length > 0) {
-              // Initialize bounds with the coordinates of the first feature
-              const bounds = new LngLatBounds();
-
-              // Extend the bounds to include all coordinates from all features
-              features.forEach((feature) => {
-                feature.geometry.coordinates.forEach((coord) => {
-                  bounds.extend(coord);
-                });
-              });
-
-              // Fit the map to the calculated bounds
-              map.current!.fitBounds(bounds, {
-                padding: 75,
-              });
-            }
-
-            // Disable map interactions if needed
-            map.current!.boxZoom.disable();
-            map.current!.scrollZoom.disable();
-            map.current!.dragPan.disable();
-            map.current!.dragRotate.disable();
-            map.current!.keyboard.disable();
-            map.current!.doubleClickZoom.disable();
-            map.current!.touchZoomRotate.disable();
-          }
-        });
-      });
-    } else {
-      // Update the data of the "route" source when geoJsonData changes
-      if (mapStyleUrl !== prevStyle.current) {
-        map.current.setStyle(mapStyleUrl);
-        prevStyle.current = mapStyleUrl
-
-      } else {
-        map.current.getSource(routeSource.current!)!.setData(geoJsonData);
+        // Center the map around the initial data
+        centerMap(geoJsonData);
+        disableUserMovement();
       }
-    }
-  }, [mapboxApiKey, mapStyleUrl, geoJsonData]);
+    });
 
-  return <div id="map" className="w-full h-full" ref={mapContainerRef}></div>;
+    // Cleanup function to remove the map when the component unmounts
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+      }
+    };
+  }, [mapboxApiKey, geoJsonData]);
+
+  useEffect(() => {
+    // Change map style when mapStyleUrl changes
+    if (mapInstanceRef.current && mapStyleUrl) {
+      mapInstanceRef.current.setStyle(mapStyleUrl);
+
+      mapInstanceRef.current.on('style.load', () => {
+        const lineColor = styleUrlToColorMap[mapStyleUrl].color;
+        const lineWidth = styleUrlToColorMap[mapStyleUrl].width;
+        const lineDasharray = styleUrlToColorMap[mapStyleUrl].lineDasharray;
+        mapInstanceRef.current.setPaintProperty('route', 'line-color', lineColor);
+        mapInstanceRef.current.setPaintProperty('route', 'line-width', lineWidth);
+        mapInstanceRef.current.setPaintProperty('route', 'line-dasharray', lineDasharray);
+      });
+    }
+  }, [mapStyleUrl, geoJsonData]);
+
+  return (
+    <div ref={mapContainerRef} className='w-full h-full'/>
+  );
 };
 
 export default MapComponent;

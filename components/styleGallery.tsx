@@ -27,14 +27,16 @@ const StyleGallery: React.FC<StyleGalleryProps> = ({ onClick }) => {
             styleUrl="mapbox://styles/mapbox/streets-v12"
             />
             <ImageCard
-            imageUrl="/previews/map_preview.png"
-            styleName="Strava Dark"
+            imageUrl="/previews/blueprint.png"
+            styleName="Blueprint"
             onClick={onClick}
+            styleUrl="mapbox://styles/wspearman/clmv38qdg020v01r82fnr56jw"
             />
             <ImageCard
-            imageUrl="/previews/map_preview.png"
-            styleName="Strava Dark"
+            imageUrl="/previews/strava_orange.png"
+            styleName="Strava Orange"
             onClick={onClick}
+            styleUrl="mapbox://styles/wspearman/clmvad3cl006f01py0bcl73yz"
             />
             <ImageCard
             imageUrl="/previews/map_preview.png"
